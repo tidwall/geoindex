@@ -1,16 +1,10 @@
 package geoindex
 
-import "fmt"
+import (
+	"fmt"
 
-// Index is a wrapper around Interface that provides extra features like a
-// Nearby (kNN) function.
-// This can be created like such:
-//   var tree = rbang.New()
-//   var index = index.Index{tree}
-// Now you can use `index` just like tree but with the extra features.
-type Index struct {
-	Interface
-}
+	"github.com/tidwall/geoindex/child"
+)
 
 // Interface is a tree-like structure that contains geospatial data
 type Interface interface {
@@ -30,23 +24,30 @@ type Interface interface {
 	// Bounds returns the minimum bounding box
 	Bounds() (min, max [2]float64)
 	// Children returns all children for parent node. If parent node is nil
-	// then the root nodes should be returned. The min, max, data, and items
-	// slices all must have the same lengths. And, each element from all slices
-	// must be associated. Returns true for `items` when the the item at the
-	// leaf level. The reuse buffers are empty length slices that can
-	// optionally be used to avoid extra allocations.
-	Children(
-		parent interface{},
-		reuseMin [][2]float64,
-		reuseMax [][2]float64,
-		reuseData []interface{},
-		reuseItem []bool,
-	) (min, max [][2]float64, datas []interface{}, items []bool)
+	// then the root nodes should be returned.
+	// The reuse buffer is an empty length slice that can optionally be used
+	// to avoid extra allocations.
+	Children(parent interface{}, reuse []child.Child) (children []child.Child)
+}
+
+// Index is a wrapper around Interface that provides extra features like a
+// Nearby (kNN) function.
+// This can be created like such:
+//   var tree = rbang.New()
+//   var index = index.Index{tree}
+// Now you can use `index` just like tree but with the extra features.
+type Index struct {
+	tree Interface
+}
+
+// Wrap a tree-like geospatial interface.
+func Wrap(tree Interface) *Index {
+	return &Index{tree}
 }
 
 // Insert an item into the index
 func (index *Index) Insert(min, max [2]float64, data interface{}) {
-	index.Interface.Insert(min, max, data)
+	index.tree.Insert(min, max, data)
 }
 
 // Search the index for items that intersects the rect param
@@ -54,12 +55,22 @@ func (index *Index) Search(
 	min, max [2]float64,
 	iter func(min, max [2]float64, data interface{}) bool,
 ) {
-	index.Interface.Search(min, max, iter)
+	index.tree.Search(min, max, iter)
 }
 
 // Delete an item from the index
 func (index *Index) Delete(min, max [2]float64, data interface{}) {
-	index.Interface.Delete(min, max, data)
+	index.tree.Delete(min, max, data)
+}
+
+// Children returns all children for parent node. If parent node is nil
+// then the root nodes should be returned.
+// The reuse buffer is an empty length slice that can optionally be used
+// to avoid extra allocations.
+func (index *Index) Children(parent interface{}, reuse []child.Child) (
+	children []child.Child,
+) {
+	return index.tree.Children(parent, reuse)
 }
 
 // Nearby performs a kNN-type operation on the index. It's expected that the
@@ -73,21 +84,14 @@ func (index *Index) Nearby(
 ) {
 	var q queue
 	var parent interface{}
-	var mins [][2]float64
-	var maxs [][2]float64
-	var datas []interface{}
-	var items []bool
+	var children []child.Child
 	for {
 		// gather all children for parent
-		mins, maxs, datas, items = index.Interface.Children(parent,
-			mins[:0], maxs[:0], datas[:0], items[:0])
-		for i := 0; i < len(datas); i++ {
+		children = index.tree.Children(parent, children[:0])
+		for _, child := range children {
 			q.push(qnode{
-				dist:   algo(mins[i], maxs[i], datas[i], items[i]),
-				min:    mins[i],
-				max:    maxs[i],
-				data:   datas[i],
-				item:   items[i],
+				dist:   algo(child.Min, child.Max, child.Data, child.Item),
+				child:  child,
 				filled: true,
 			})
 		}
@@ -97,27 +101,30 @@ func (index *Index) Nearby(
 				// nothing left in queue
 				return
 			}
-			if node.item {
-				if !iter(node.min, node.max, node.data, node.dist) {
+			if node.child.Item {
+				if !iter(node.child.Min, node.child.Max,
+					node.child.Data, node.dist) {
 					return
 				}
 			} else {
 				// gather more children
-				parent = node.data
+				parent = node.child.Data
 				break
 			}
 		}
 	}
 }
 
+// Len returns the number of items in tree
+func (index *Index) Len() int {
+	return index.tree.Len()
+}
+
 // Priority Queue ordered by dist (smallest to largest)
 
 type qnode struct {
 	dist   float64
-	min    [2]float64
-	max    [2]float64
-	data   interface{}
-	item   bool
+	child  child.Child
 	filled bool
 }
 
@@ -168,6 +175,13 @@ func (q *queue) pop() qnode {
 	return n
 }
 
+// Scan iterates through all data in tree in no specified order.
+func (index *Index) Scan(
+	iter func(min, max [2]float64, data interface{}) bool,
+) {
+	index.tree.Scan(iter)
+}
+
 // SimpleBoxAlgo ...
 func SimpleBoxAlgo(targetMin, targetMax [2]float64) (
 	dist func(min, max [2]float64, data interface{}, item bool) (dist float64),
@@ -211,11 +225,11 @@ func boxDist(amin, amax, bmin, bmax [2]float64) float64 {
 	return dist
 }
 
-func (index *Index) svg(data interface{}, item bool, min, max [2]float64, height int) []byte {
+func (index *Index) svg(child child.Child, height int) []byte {
 	var out []byte
 	point := true
 	for i := 0; i < 2; i++ {
-		if min[i] != max[i] {
+		if child.Min[i] != child.Max[i] {
 			point = false
 			break
 		}
@@ -226,27 +240,26 @@ func (index *Index) svg(data interface{}, item bool, min, max [2]float64, height
 				"stroke=\"%s\" fill=\"purple\" "+
 				"fill-opacity=\"0\" stroke-opacity=\"1\" "+
 				"rx=\"15\" ry=\"15\"/>\n",
-			(min[0])*svgScale,
-			(min[1])*svgScale,
-			(max[0]-min[0]+1/svgScale)*svgScale,
-			(max[1]-min[1]+1/svgScale)*svgScale,
+			(child.Min[0])*svgScale,
+			(child.Min[1])*svgScale,
+			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
+			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
 			strokes[height%len(strokes)])...)
 	} else { // is rect
 		out = append(out, fmt.Sprintf(
 			"<rect x=\"%.0f\" y=\"%0.f\" width=\"%0.f\" height=\"%0.f\" "+
 				"stroke=\"%s\" fill=\"purple\" "+
 				"fill-opacity=\"0\" stroke-opacity=\"1\"/>\n",
-			(min[0])*svgScale,
-			(min[1])*svgScale,
-			(max[0]-min[0]+1/svgScale)*svgScale,
-			(max[1]-min[1]+1/svgScale)*svgScale,
+			(child.Min[0])*svgScale,
+			(child.Min[1])*svgScale,
+			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
+			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
 			strokes[height%len(strokes)])...)
 	}
-	if !item {
-		mins, maxs, datas, items :=
-			index.Children(data, nil, nil, nil, nil)
-		for i := 0; i < len(datas); i++ {
-			out = append(out, index.svg(datas[i], items[i], mins[i], maxs[i], height+1)...)
+	if !child.Item {
+		children := index.tree.Children(child.Data, nil)
+		for _, child := range children {
+			out = append(out, index.svg(child, height+1)...)
 		}
 	}
 	return out
@@ -276,10 +289,8 @@ func (index *Index) SVG() string {
 	out += fmt.Sprintf("<g transform=\"scale(1,-1)\">\n")
 
 	var outb []byte
-	mins, maxs, datas, items :=
-		index.Children(nil, nil, nil, nil, nil)
-	for i := 0; i < len(datas); i++ {
-		outb = append(outb, index.svg(datas[i], items[i], mins[i], maxs[i], 1)...)
+	for _, child := range index.Children(nil, nil) {
+		outb = append(outb, index.svg(child, 1)...)
 	}
 
 	out += string(outb)

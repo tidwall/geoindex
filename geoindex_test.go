@@ -115,7 +115,7 @@ func testBoxDist(amin, amax, bmin, bmax [2]float64) float64 {
 func testBoxesVarious(t *testing.T, boxes []tBox, label string) {
 	N := len(boxes)
 
-	tr := &Index{Interface: &rbang.RTree{}}
+	tr := Wrap(&rbang.RTree{})
 
 	// N := 10000
 	// boxes := randPoints(N)
@@ -326,7 +326,7 @@ func TestRandomPoints(t *testing.T) {
 
 func TestSVG(t *testing.T) {
 	var tr rbang.RTree
-	index := &Index{Interface: &tr}
+	index := Wrap(&tr)
 	for _, city := range cities.Cities {
 		p := [2]float64{city.Longitude, city.Latitude}
 		tr.Insert(p, p, &city)
