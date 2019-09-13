@@ -120,6 +120,11 @@ func (index *Index) Len() int {
 	return index.tree.Len()
 }
 
+// Bounds returns the minimum bounding box
+func (index *Index) Bounds() (min, max [2]float64) {
+	return index.tree.Bounds()
+}
+
 // Priority Queue ordered by dist (smallest to largest)
 
 type qnode struct {
