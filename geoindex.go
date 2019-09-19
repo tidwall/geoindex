@@ -73,31 +73,50 @@ func (index *Index) Children(parent interface{}, reuse []child.Child) (
 	return index.tree.Children(parent, reuse)
 }
 
-// Nearby performs a kNN-type operation on the index. It's expected that the
-// caller provides the `dist` function, which is used to calculate the
-// distance from a node or item to another object. The other object is unknown
-// this operation, but is expected to be known by the caller. The iter will
-// return all items from the smallest dist to the largest dist.
+// Nearby performs a kNN-type operation on the index.
+// It's expected that the caller provides its own the `algo` function, which
+// is used to calculate a distance to data. The `add` function should be
+// called by the caller to "return" the data item along with a distance.
+// The `iter` function will return all items from the smallest dist to the
+// largest dist.
+// Take a look at the SimpleBoxAlgo function for a usage example.
 func (index *Index) Nearby(
-	algo func(min, max [2]float64, data interface{}, item bool) (dist float64),
+	algo func(
+		min, max [2]float64, data interface{}, item bool,
+		add func(min, max [2]float64, data interface{}, item bool, dist float64),
+	),
 	iter func(min, max [2]float64, data interface{}, dist float64) bool,
 ) {
 	var q queue
 	var parent interface{}
 	var children []child.Child
+
+	var added []qnode
+	add := func(min, max [2]float64, data interface{}, item bool, dist float64) {
+		added = append(added, qnode{
+			dist: dist,
+			child: child.Child{
+				Data: data,
+				Min:  min,
+				Max:  max,
+				Item: item,
+			},
+		})
+	}
+
 	for {
 		// gather all children for parent
 		children = index.tree.Children(parent, children[:0])
 		for _, child := range children {
-			q.push(qnode{
-				dist:   algo(child.Min, child.Max, child.Data, child.Item),
-				child:  child,
-				filled: true,
-			})
+			added = added[:0]
+			algo(child.Min, child.Max, child.Data, child.Item, add)
+			for _, node := range added {
+				q.push(node)
+			}
 		}
 		for {
-			node := q.pop()
-			if !node.filled {
+			node, ok := q.pop()
+			if !ok {
 				// nothing left in queue
 				return
 			}
@@ -128,9 +147,8 @@ func (index *Index) Bounds() (min, max [2]float64) {
 // Priority Queue ordered by dist (smallest to largest)
 
 type qnode struct {
-	dist   float64
-	child  child.Child
-	filled bool
+	dist  float64
+	child child.Child
 }
 
 type queue struct {
@@ -156,9 +174,9 @@ func (q *queue) push(node qnode) {
 	q.len++
 }
 
-func (q *queue) pop() qnode {
+func (q *queue) pop() (qnode, bool) {
 	if q.len == 0 {
-		return qnode{}
+		return qnode{}, false
 	}
 	n := q.nodes[1]
 	q.nodes[1] = q.nodes[q.len]
@@ -177,7 +195,7 @@ func (q *queue) pop() qnode {
 		q.nodes[i] = q.nodes[k]
 		i = k
 	}
-	return n
+	return n, true
 }
 
 // Scan iterates through all data in tree in no specified order.
@@ -187,12 +205,18 @@ func (index *Index) Scan(
 	index.tree.Scan(iter)
 }
 
-// SimpleBoxAlgo ...
+// SimpleBoxAlgo performs box-distance algorithm on rectangles.
 func SimpleBoxAlgo(targetMin, targetMax [2]float64) (
-	dist func(min, max [2]float64, data interface{}, item bool) (dist float64),
+	algo func(
+		min, max [2]float64, data interface{}, item bool,
+		add func(min, max [2]float64, data interface{}, item bool, dist float64),
+	),
 ) {
-	return func(min, max [2]float64, data interface{}, item bool) float64 {
-		return boxDist(targetMin, targetMax, min, max)
+	return func(
+		min, max [2]float64, data interface{}, item bool,
+		add func(min, max [2]float64, data interface{}, item bool, dist float64),
+	) {
+		add(min, max, data, item, boxDist(targetMin, targetMax, min, max))
 	}
 }
 

@@ -314,6 +314,41 @@ func testBoxesVarious(t *testing.T, boxes []tBox, label string) {
 		ldist = dist
 	}
 
+	// test bounds
+	min := boxes3[0].min
+	max := boxes3[0].max
+	for _, box := range boxes3 {
+		if box.min[0] < min[0] {
+			min[0] = box.min[0]
+		}
+		if box.min[1] < min[1] {
+			min[1] = box.min[1]
+		}
+		if box.max[0] > max[0] {
+			max[0] = box.max[0]
+		}
+		if box.max[1] > max[1] {
+			max[1] = box.max[1]
+		}
+	}
+	min2, max2 := tr.Bounds()
+	if min2 != min || max2 != max {
+		t.Fatalf("expected %v,%v, got %v,%v", min, max, min2, max2)
+	}
+
+	// test nearby, but stop after one
+	var one tBox
+	tr.Nearby(
+		SimpleBoxAlgo(centerMin, centerMax),
+		func(min, max [2]float64, value interface{}, dist float64) bool {
+			one = value.(tBox)
+			return false
+		},
+	)
+	if one != boxes3[0] {
+		t.Fatalf("expected %v, got %v", boxes[0], one)
+	}
+
 }
 
 func TestRandomBoxes(t *testing.T) {
