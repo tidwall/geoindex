@@ -292,7 +292,12 @@ func testBoxesVarious(t *testing.T, boxes []tBox, label string) {
 
 	var boxes3 []tBox
 	tr.Nearby(
-		algo.SimpleBox(centerMin, centerMax),
+		algo.Box(
+			centerMin, centerMax, false,
+			func(min, max [2]float64, data interface{}) float64 {
+				return algo.BoxDistCalc(min, max, centerMin, centerMax, false)
+			},
+		),
 		func(min, max [2]float64, value interface{}, dist float64) bool {
 			boxes3 = append(boxes3, value.(tBox))
 			return true
@@ -340,7 +345,7 @@ func testBoxesVarious(t *testing.T, boxes []tBox, label string) {
 	// test nearby, but stop after one
 	var one tBox
 	tr.Nearby(
-		algo.SimpleBox(centerMin, centerMax),
+		algo.Box(centerMin, centerMax, false, nil),
 		func(min, max [2]float64, value interface{}, dist float64) bool {
 			one = value.(tBox)
 			return false

@@ -81,38 +81,21 @@ func (index *Index) Children(parent interface{}, reuse []child.Child) (
 // largest dist.
 // Take a look at the SimpleBoxAlgo function for a usage example.
 func (index *Index) Nearby(
-	algo func(
-		min, max [2]float64, data interface{}, item bool,
-		add func(min, max [2]float64, data interface{}, item bool, dist float64),
-	),
+	algo func(min, max [2]float64, data interface{}, item bool) (dist float64),
 	iter func(min, max [2]float64, data interface{}, dist float64) bool,
 ) {
 	var q queue
 	var parent interface{}
 	var children []child.Child
 
-	var added []qnode
-	add := func(min, max [2]float64, data interface{}, item bool, dist float64) {
-		added = append(added, qnode{
-			dist: dist,
-			child: child.Child{
-				Data: data,
-				Min:  min,
-				Max:  max,
-				Item: item,
-			},
-		})
-	}
-
 	for {
 		// gather all children for parent
 		children = index.tree.Children(parent, children[:0])
 		for _, child := range children {
-			added = added[:0]
-			algo(child.Min, child.Max, child.Data, child.Item, add)
-			for _, node := range added {
-				q.push(node)
-			}
+			q.push(qnode{
+				dist:  algo(child.Min, child.Max, child.Data, child.Item),
+				child: child,
+			})
 		}
 		for {
 			node, ok := q.pop()
@@ -244,15 +227,6 @@ func (index *Index) svg(child child.Child, height int) []byte {
 	}
 	return out
 }
-
-const (
-	// Continue to first child rectangle and/or next sibling.
-	Continue = iota
-	// Ignore child rectangles but continue to next sibling.
-	Ignore
-	// Stop iterating
-	Stop
-)
 
 const svgScale = 4.0
 
