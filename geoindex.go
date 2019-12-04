@@ -12,6 +12,13 @@ type Interface interface {
 	Insert(min, max [2]float64, data interface{})
 	// Delete an item from the structure
 	Delete(min, max [2]float64, data interface{})
+	// Replace an item in the structure. This is effectively just a Delete
+	// followed by an Insert. But for some structures it may be possible to
+	// optimize the operation to avoid multiple passes
+	Replace(
+		oldMin, oldMax [2]float64, oldData interface{},
+		newMin, newMax [2]float64, newData interface{},
+	)
 	// Search the structure for items that intersects the rect param
 	Search(
 		min, max [2]float64,

@@ -19,7 +19,7 @@ import (
 // These functions are intended to be included in a `_test.go` file. A complete
 // test file might look something like:
 //
-// 		package rtree
+// 		package myrtree
 //
 // 		import (
 // 			"math/rand"
@@ -58,14 +58,14 @@ import (
 // 		}
 //
 var Tests = struct {
-	TestBenchInsert       func(t *testing.T, tr Interface, numPoints int)
+	TestBenchVarious      func(t *testing.T, tr Interface, numPoints int)
 	TestRandomPoints      func(t *testing.T, tr Interface, numPoints int)
 	TestRandomRects       func(t *testing.T, tr Interface, numRects int)
 	TestCitiesSVG         func(t *testing.T, tr Interface)
 	TestZeroPoints        func(t *testing.T, tr Interface)
 	BenchmarkRandomInsert func(b *testing.B, tr Interface)
 }{
-	benchInsertInner,
+	benchVarious,
 	func(t *testing.T, tr Interface, numRects int) {
 		testBoxesVarious(t, tr, randBoxes(numRects), "boxes")
 	},
@@ -77,26 +77,28 @@ var Tests = struct {
 	benchmarkRandomInsert,
 }
 
-func benchInsertInner(t *testing.T, tr Interface, numPoints int) {
-	N, D := numPoints, 2
+func benchVarious(t *testing.T, tr Interface, numPoints int) {
+	N := numPoints
 	rand.Seed(time.Now().UnixNano())
-	points := make([]float64, N*D)
+	points := make([][2]float64, N)
 	for i := 0; i < N; i++ {
-		for j := 0; j < D; j++ {
-			points[i*D+j] = rand.Float64()*100 - 50
-		}
+		points[i][0] = rand.Float64()*360 - 180
+		points[i][1] = rand.Float64()*180 - 90
+	}
+	pointsReplace := make([][2]float64, N)
+	for i := 0; i < N; i++ {
+		pointsReplace[i][0] = rand.Float64()*360 - 180
+		pointsReplace[i][1] = rand.Float64()*180 - 90
 	}
 	lotsa.Output = os.Stdout
-	fmt.Printf("insert: ")
+	fmt.Printf("insert:  ")
 	lotsa.Ops(N, 1, func(i, _ int) {
-		point := [2]float64{points[i*D+0], points[i*D+1]}
-		tr.Insert(point, point, i)
+		tr.Insert(points[i], points[i], i)
 	})
-	fmt.Printf("search: ")
+	fmt.Printf("search:  ")
 	var count int
 	lotsa.Ops(N, 1, func(i, _ int) {
-		point := [2]float64{points[i*D+0], points[i*D+1]}
-		tr.Search(point, point,
+		tr.Search(points[i], points[i],
 			func(min, max [2]float64, value interface{}) bool {
 				count++
 				return true
@@ -106,13 +108,23 @@ func benchInsertInner(t *testing.T, tr Interface, numPoints int) {
 	if count != N {
 		t.Fatalf("expected %d, got %d", N, count)
 	}
-	fmt.Printf("delete: ")
+	fmt.Printf("replace: ")
 	lotsa.Ops(N, 1, func(i, _ int) {
-		point := [2]float64{points[i*D+0], points[i*D+1]}
-		tr.Delete(point, point, i)
+		tr.Replace(
+			points[i], points[i], i,
+			pointsReplace[i], pointsReplace[i], i,
+		)
+	})
+	if tr.Len() != N {
+		t.Fatalf("expected %d, got %d", N, tr.Len())
+	}
+
+	fmt.Printf("delete:  ")
+	lotsa.Ops(N, 1, func(i, _ int) {
+		tr.Delete(pointsReplace[i], pointsReplace[i], i)
 	})
 	if tr.Len() != 0 {
-		t.Fatalf("expected %d, got %d", N, tr.Len())
+		t.Fatalf("expected %d, got %d", 0, tr.Len())
 	}
 }
 
