@@ -87,8 +87,8 @@ func benchVarious(t *testing.T, tr Interface, numPoints int) {
 	}
 	pointsReplace := make([][2]float64, N)
 	for i := 0; i < N; i++ {
-		pointsReplace[i][0] = rand.Float64()*360 - 180
-		pointsReplace[i][1] = rand.Float64()*180 - 90
+		pointsReplace[i][0] = points[i][0] + (rand.Float64() - 0.000001)
+		pointsReplace[i][1] = points[i][1] + (rand.Float64() - 0.000001)
 	}
 	lotsa.Output = os.Stdout
 	fmt.Printf("insert:  ")
@@ -131,9 +131,6 @@ func benchVarious(t *testing.T, tr Interface, numPoints int) {
 func testBoxesVarious(t *testing.T, tr Interface, boxes []tBox, label string) {
 	N := len(boxes)
 
-	// N := 10000
-	// boxes := randPoints(N)
-
 	/////////////////////////////////////////
 	// insert
 	/////////////////////////////////////////
@@ -143,10 +140,6 @@ func testBoxesVarious(t *testing.T, tr Interface, boxes []tBox, label string) {
 	if tr.Len() != N {
 		t.Fatalf("expected %d, got %d", N, tr.Len())
 	}
-	// area := tr.TotalOverlapArea()
-	// fmt.Printf("overlap:    %.0f, %.1f/item\n", area, area/float64(N))
-
-	//	ioutil.WriteFile(label+".svg", []byte(rtreetools.SVG(&tr)), 0600)
 
 	/////////////////////////////////////////
 	// scan all items and count one-by-one
@@ -269,8 +262,6 @@ func testBoxesVarious(t *testing.T, tr Interface, boxes []tBox, label string) {
 	if tr.Len() != N {
 		t.Fatalf("expected %d, got %d", N, tr.Len())
 	}
-	// area = tr.TotalOverlapArea()
-	// fmt.Fprintf(wr, "overlap:    %.0f, %.1f/item\n", area, area/float64(N))
 
 	/////////////////////////////////////////
 	// check every point for correctness
