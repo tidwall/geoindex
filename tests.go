@@ -87,8 +87,14 @@ func benchVarious(t *testing.T, tr Interface, numPoints int) {
 	}
 	pointsReplace := make([][2]float64, N)
 	for i := 0; i < N; i++ {
-		pointsReplace[i][0] = points[i][0] + (rand.Float64() - 0.000001)
-		pointsReplace[i][1] = points[i][1] + (rand.Float64() - 0.000001)
+		pointsReplace[i][0] = points[i][0] + rand.Float64()
+		if pointsReplace[i][0] > 180 {
+			pointsReplace[i][0] = points[i][0] - rand.Float64()
+		}
+		pointsReplace[i][1] = points[i][1] + rand.Float64()
+		if pointsReplace[i][1] > 90 {
+			pointsReplace[i][1] = points[i][1] - rand.Float64()
+		}
 	}
 	lotsa.Output = os.Stdout
 	fmt.Printf("insert:  ")
