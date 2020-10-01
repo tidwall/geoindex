@@ -2,6 +2,7 @@ package geoindex
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/tidwall/geoindex/child"
 )
@@ -44,12 +45,13 @@ type Interface interface {
 //   var index = index.Index{tree}
 // Now you can use `index` just like tree but with the extra features.
 type Index struct {
-	tree Interface
+	tree   Interface
+	queues *sync.Pool
 }
 
 // Wrap a tree-like geospatial interface.
 func Wrap(tree Interface) *Index {
-	return &Index{tree}
+	return &Index{tree, nil}
 }
 
 // Insert an item into the index
@@ -91,9 +93,25 @@ func (index *Index) Nearby(
 	algo func(min, max [2]float64, data interface{}, item bool) (dist float64),
 	iter func(min, max [2]float64, data interface{}, dist float64) bool,
 ) {
-	var q queue
+	var q *queue
 	var parent interface{}
 	var children []child.Child
+
+	// Retrieve an existing queue from the pool. The pool may not already exist.
+	if index.queues == nil {
+		index.queues = &sync.Pool{
+			New: func() interface{} {
+				// We need not do anything special, but the underlying
+				// slice will retain its memory over time.
+				return &queue{}
+			},
+		}
+	}
+
+	// Get, and later return, the queue.
+	q = index.queues.Get().(*queue)
+	defer q.empty()
+	defer index.queues.Put(q)
 
 	for {
 		// gather all children for parent
@@ -181,6 +199,16 @@ func (q *queue) pop() (qnode, bool) {
 		i = smallest
 	}
 	return n, true
+}
+
+// Empty the queue without deallocating.
+func (q *queue) empty() {
+	nodes := *q
+	nodes = nodes[:0]
+	// Fill with two empty ones, as push() normally does.
+	nodes = append(nodes, qnode{})
+	nodes = append(nodes, qnode{})
+	*q = nodes
 }
 
 // Scan iterates through all data in tree in no specified order.
