@@ -1,6 +1,7 @@
 package geoindex
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -112,5 +113,40 @@ func BenchmarkQueue(b *testing.B) {
 		} else {
 			q.pop()
 		}
+	}
+}
+
+func BenchmarkNearby(b *testing.B) {
+	b.ReportAllocs()
+
+	tr := &rbang.RTree{}
+	treeIndex := Wrap(tr)
+
+	rand.Seed(time.Now().UnixNano())
+	points := make([][2]float64, b.N)
+	for i := 0; i < b.N; i++ {
+		points[i][0] = rand.Float64()*360 - 180
+		points[i][1] = rand.Float64()*180 - 90
+
+		treeIndex.Insert(points[i], points[i], i)
+	}
+
+	var count int
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		targetPoint := points[i]
+
+		treeIndex.Nearby(func(min, max [2]float64, data interface{}, item bool) (dist float64) {
+			return math.Sqrt(math.Pow(min[0]-targetPoint[0], 2.) + math.Pow(min[1]-targetPoint[1], 2.))
+		}, func(min, max [2]float64, data interface{}, dist float64) bool {
+			count++
+			return false
+		})
+	}
+
+	if count != b.N {
+		b.Fatalf("wrong count\n")
 	}
 }
