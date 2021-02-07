@@ -1,12 +1,11 @@
-package geoindex_test
+package geoindex
 
 import (
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/tidwall/geoindex"
-	"github.com/tidwall/rtree"
+	"github.com/tidwall/geoindex/internal"
 )
 
 func init() {
@@ -17,22 +16,22 @@ func init() {
 
 func TestGeoIndex(t *testing.T) {
 	t.Run("BenchVarious", func(t *testing.T) {
-		geoindex.Tests.TestBenchVarious(t, &rtree.RTree{}, 100000)
+		Tests.TestBenchVarious(t, &internal.RTree{}, 100000)
 	})
 	t.Run("RandomRects", func(t *testing.T) {
-		geoindex.Tests.TestRandomRects(t, &rtree.RTree{}, 10000)
+		Tests.TestRandomRects(t, &internal.RTree{}, 10000)
 	})
 	t.Run("RandomPoints", func(t *testing.T) {
-		geoindex.Tests.TestRandomPoints(t, &rtree.RTree{}, 10000)
+		Tests.TestRandomPoints(t, &internal.RTree{}, 10000)
 	})
 	t.Run("ZeroPoints", func(t *testing.T) {
-		geoindex.Tests.TestZeroPoints(t, &rtree.RTree{})
+		Tests.TestZeroPoints(t, &internal.RTree{})
 	})
 	t.Run("CitiesSVG", func(t *testing.T) {
-		geoindex.Tests.TestCitiesSVG(t, &rtree.RTree{})
+		Tests.TestCitiesSVG(t, &internal.RTree{})
 	})
 }
 
 func BenchmarkRandomInsert(b *testing.B) {
-	geoindex.Tests.BenchmarkRandomInsert(b, &rtree.RTree{})
+	Tests.BenchmarkRandomInsert(b, &internal.RTree{})
 }
