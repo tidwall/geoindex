@@ -15,7 +15,8 @@ func (q *queue) push(node qnode) {
 	*q = append(*q, node)
 	nodes := *q
 	i := len(nodes) - 1
-	for parent := (i - 1) / 2; i != 0 && nodes[parent].dist > nodes[i].dist; parent = (i - 1) / 2 {
+	parent := (i - 1) / 2
+	for ; i != 0 && nodes[parent].dist > nodes[i].dist; parent = (i - 1) / 2 {
 		nodes[parent], nodes[i] = nodes[i], nodes[parent]
 		i = parent
 	}
