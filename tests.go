@@ -58,7 +58,7 @@ import (
 // 		}
 //
 var Tests = struct {
-	TestBenchVarious      func(t *testing.T, tr Interface, numPoints int)
+	TestBenchVarious      func(t *testing.T, tr Interface, numPointOrRects int)
 	TestRandomPoints      func(t *testing.T, tr Interface, numPoints int)
 	TestRandomRects       func(t *testing.T, tr Interface, numRects int)
 	TestCitiesSVG         func(t *testing.T, tr Interface)
@@ -77,36 +77,85 @@ var Tests = struct {
 	benchmarkRandomInsert,
 }
 
-func benchVarious(t *testing.T, tr Interface, numPoints int) {
-	N := numPoints
-	rand.Seed(time.Now().UnixNano())
-	points := make([][2]float64, N)
-	for i := 0; i < N; i++ {
-		points[i][0] = rand.Float64()*360 - 180
-		points[i][1] = rand.Float64()*180 - 90
+type rect struct {
+	min, max [2]float64
+}
+
+// kind = 'r','p','m' for rect,point,mixed
+func randRect(kind byte) (r rect) {
+	r.min[0] = rand.Float64()*360 - 180
+	r.min[1] = rand.Float64()*180 - 90
+	r.max = r.min
+	return randRectOffset(r, kind)
+}
+
+func randRectOffset(r rect, kind byte) rect {
+	rsize := 0.01 // size of rectangle in degrees
+	pr := r
+	for {
+		r.min[0] = (pr.max[0]+pr.min[0])/2 + rand.Float64()*rsize - rsize/2
+		r.min[1] = (pr.max[1]+pr.min[1])/2 + rand.Float64()*rsize - rsize/2
+		r.max = r.min
+		if kind == 'r' || (kind == 'm' && rand.Int()%2 == 0) {
+			// rect
+			r.max[0] = r.min[0] + rand.Float64()*rsize
+			r.max[1] = r.min[1] + rand.Float64()*rsize
+		} else {
+			// point
+			r.max = r.min
+		}
+		if r.min[0] < -180 || r.min[1] < -90 ||
+			r.max[0] > 180 || r.max[1] > 90 {
+			continue
+		}
+		return r
 	}
-	pointsReplace := make([][2]float64, N)
+}
+
+type mixedTree interface {
+	IsMixedTree() bool
+}
+
+func benchVarious(t *testing.T, tr Interface, numPointOrRects int) {
+	if v, ok := tr.(mixedTree); ok && v.IsMixedTree() {
+		println("== points ==")
+		benchVariousKind(t, tr, numPointOrRects, 'p')
+		println("== rects ==")
+		benchVariousKind(t, tr, numPointOrRects, 'r')
+		println("== mixed (50/50) ==")
+		benchVariousKind(t, tr, numPointOrRects, 'm')
+	} else {
+		benchVariousKind(t, tr, numPointOrRects, 'm')
+	}
+}
+
+func benchVariousKind(t *testing.T, tr Interface, numPointOrRects int,
+	kind byte,
+) {
+	N := numPointOrRects
+	rand.Seed(time.Now().UnixNano())
+	rects := make([]rect, N)
 	for i := 0; i < N; i++ {
-		pointsReplace[i][0] = points[i][0] + rand.Float64()
-		if pointsReplace[i][0] > 180 {
-			pointsReplace[i][0] = points[i][0] - rand.Float64()
-		}
-		pointsReplace[i][1] = points[i][1] + rand.Float64()
-		if pointsReplace[i][1] > 90 {
-			pointsReplace[i][1] = points[i][1] - rand.Float64()
-		}
+		rects[i] = randRect(kind)
+	}
+	rectsReplace := make([]rect, N)
+	for i := 0; i < N; i++ {
+		rectsReplace[i] = randRectOffset(rects[i], kind)
 	}
 	lotsa.Output = os.Stdout
 	fmt.Printf("insert:  ")
 	lotsa.Ops(N, 1, func(i, _ int) {
-		tr.Insert(points[i], points[i], i)
+		tr.Insert(rects[i].min, rects[i].max, i)
 	})
 	fmt.Printf("search:  ")
 	var count int
 	lotsa.Ops(N, 1, func(i, _ int) {
-		tr.Search(points[i], points[i],
+		tr.Search(rects[i].min, rects[i].max,
 			func(min, max [2]float64, value interface{}) bool {
-				count++
+				if value.(int) == i {
+					count++
+					return false
+				}
 				return true
 			},
 		)
@@ -117,8 +166,8 @@ func benchVarious(t *testing.T, tr Interface, numPoints int) {
 	fmt.Printf("replace: ")
 	lotsa.Ops(N, 1, func(i, _ int) {
 		tr.Replace(
-			points[i], points[i], i,
-			pointsReplace[i], pointsReplace[i], i,
+			rects[i].min, rects[i].max, i,
+			rectsReplace[i].min, rectsReplace[i].max, i,
 		)
 	})
 	if tr.Len() != N {
@@ -127,7 +176,7 @@ func benchVarious(t *testing.T, tr Interface, numPoints int) {
 
 	fmt.Printf("delete:  ")
 	lotsa.Ops(N, 1, func(i, _ int) {
-		tr.Delete(pointsReplace[i], pointsReplace[i], i)
+		tr.Delete(rectsReplace[i].min, rectsReplace[i].max, i)
 	})
 	if tr.Len() != 0 {
 		t.Fatalf("expected %d, got %d", 0, tr.Len())
