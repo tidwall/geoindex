@@ -143,47 +143,36 @@ func (index *Index) Scan(
 
 func (index *Index) svg(child child.Child, height int) []byte {
 	var out []byte
-	point := true
-	for i := 0; i < 2; i++ {
-		if child.Min[i] != child.Max[i] {
-			point = false
-			break
-		}
-	}
-	if point { // is point
-		out = append(out, fmt.Sprintf(
-			"<rect x=\"%.0f\" y=\"%0.f\" width=\"%0.f\" height=\"%0.f\" "+
-				"stroke=\"%s\" fill=\"purple\" "+
-				"fill-opacity=\"0\" stroke-opacity=\"1\" "+
-				"rx=\"15\" ry=\"15\"/>\n",
-			(child.Min[0])*svgScale,
-			(child.Min[1])*svgScale,
-			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
-			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
-			strokes[height%len(strokes)])...)
-	} else { // is rect
-		out = append(out, fmt.Sprintf(
-			"<rect x=\"%.0f\" y=\"%0.f\" width=\"%0.f\" height=\"%0.f\" "+
-				"stroke=\"%s\" fill=\"purple\" "+
-				"fill-opacity=\"0\" stroke-opacity=\"1\"/>\n",
-			(child.Min[0])*svgScale,
-			(child.Min[1])*svgScale,
-			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
-			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
-			strokes[height%len(strokes)])...)
-	}
+
 	if !child.Item {
+		out = append(out, fmt.Sprintf(
+			"<rect x=\"%.0f\" y=\"%.0f\" width=\"%.0f\" height=\"%.0f\" "+
+				"stroke=\"%s\" fill-opacity=\"0\" stroke-opacity=\"1\"/>\n",
+			(child.Min[0])*svgScale,
+			(child.Min[1])*svgScale,
+			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
+			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
+			strokes[height%len(strokes)])...)
 		children := index.tree.Children(child.Data, nil)
 		for _, child := range children {
 			out = append(out, index.svg(child, height+1)...)
 		}
+	} else {
+		out = append(out, fmt.Sprintf(
+			"<rect x=\"%.0f\" y=\"%.0f\" width=\"%.0f\" height=\"%.0f\" "+
+				"stroke=\"%s\" fill-opacity=\"0\" stroke-opacity=\"1\"/>\n",
+			(child.Min[0])*svgScale,
+			(child.Min[1])*svgScale,
+			(child.Max[0]-child.Min[0]+1/svgScale)*svgScale,
+			(child.Max[1]-child.Min[1]+1/svgScale)*svgScale,
+			strokes[len(strokes)-1])...)
 	}
 	return out
 }
 
-const svgScale = 4.0
+const svgScale = 5.0
 
-var strokes = [...]string{"black", "#cccc00", "green", "red", "purple"}
+var strokes = [...]string{"purple", "red", "#009900", "#cccc00", "black"}
 
 // SVG prints 2D rtree in wgs84 coordinate space
 func (index *Index) SVG() string {
