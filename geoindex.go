@@ -40,7 +40,7 @@ type Interface interface {
 // Index is a wrapper around Interface that provides extra features like a
 // Nearby (kNN) function.
 // This can be created like such:
-//   var tree = rbang.New()
+//   var tree = &rtree.RTree{}
 //   var index = index.Index{tree}
 // Now you can use `index` just like tree but with the extra features.
 type Index struct {

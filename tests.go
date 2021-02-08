@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/tidwall/cities"
 	"github.com/tidwall/geoindex/algo"
@@ -133,7 +132,6 @@ func benchVariousKind(t *testing.T, tr Interface, numPointOrRects int,
 	kind byte,
 ) {
 	N := numPointOrRects
-	rand.Seed(time.Now().UnixNano())
 	rects := make([]rect, N)
 	for i := 0; i < N; i++ {
 		rects[i] = randRect(kind)
@@ -445,7 +443,8 @@ func benchmarkRandomInsert(b *testing.B, tr Interface) {
 
 func testCitiesSVG(t *testing.T, tr Interface) {
 	index := Wrap(tr)
-	for _, city := range cities.Cities {
+	for _, i := range rand.Perm(len(cities.Cities)) {
+		city := cities.Cities[i]
 		p := [2]float64{city.Longitude, city.Latitude}
 		index.Insert(p, p, &city)
 	}
