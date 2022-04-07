@@ -30,6 +30,9 @@ func TestGeoIndex(t *testing.T) {
 	t.Run("CitiesSVG", func(t *testing.T) {
 		Tests.TestCitiesSVG(t, &internal.RTree{})
 	})
+	t.Run("RandomSVG", func(t *testing.T) {
+		Tests.TestRandomSVG(t, &internal.RTree{})
+	})
 }
 
 func BenchmarkRandomInsert(b *testing.B) {

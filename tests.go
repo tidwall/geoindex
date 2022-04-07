@@ -61,6 +61,7 @@ var Tests = struct {
 	TestRandomPoints      func(t *testing.T, tr Interface, numPoints int)
 	TestRandomRects       func(t *testing.T, tr Interface, numRects int)
 	TestCitiesSVG         func(t *testing.T, tr Interface)
+	TestRandomSVG         func(t *testing.T, tr Interface)
 	TestZeroPoints        func(t *testing.T, tr Interface)
 	BenchmarkRandomInsert func(b *testing.B, tr Interface)
 }{
@@ -72,6 +73,7 @@ var Tests = struct {
 		testBoxesVarious(t, tr, randPoints(numPoints), "points")
 	},
 	testCitiesSVG,
+	testRandomSVG,
 	testZeroPoints,
 	benchmarkRandomInsert,
 }
@@ -488,6 +490,18 @@ func testCitiesSVG(t *testing.T, tr Interface) {
 	}
 	svg := index.SVG()
 	if err := ioutil.WriteFile("cities.svg", []byte(svg), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func testRandomSVG(t *testing.T, tr Interface) {
+	index := Wrap(tr)
+	for i := 0; i < 10_000; i++ {
+		p := [2]float64{rand.Float64()*180 - 90, rand.Float64()*180 - 90}
+		index.Insert(p, p, i)
+	}
+	svg := index.SVG()
+	if err := ioutil.WriteFile("random.svg", []byte(svg), 0600); err != nil {
 		t.Fatal(err)
 	}
 }
