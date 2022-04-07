@@ -138,11 +138,11 @@ func benchVariousKind(t *testing.T, tr Interface, numPointOrRects int,
 	}
 
 	lotsa.Output = os.Stdout
-	fmt.Printf("insert:  ")
+	fmt.Printf("insert:       ")
 	lotsa.Ops(N, 1, func(i, _ int) {
 		tr.Insert(rects[i].min, rects[i].max, i)
 	})
-	fmt.Printf("search:  ")
+	fmt.Printf("search-item:  ")
 	var count int
 	lotsa.Ops(N, 1, func(i, _ int) {
 		tr.Search(rects[i].min, rects[i].max,
@@ -159,7 +159,37 @@ func benchVariousKind(t *testing.T, tr Interface, numPointOrRects int,
 		t.Fatalf("expected %d, got %d", N, count)
 	}
 
-	fmt.Printf("delete:  ")
+	fmt.Printf("search-1%%:    ")
+	lotsa.Ops(10_000, 1, func(i, _ int) {
+		const p = 0.01
+		min := [2]float64{rand.Float64()*360 - 180, rand.Float64()*180 - 90}
+		max := [2]float64{min[0] + 360*p, min[1] + 180*p}
+		tr.Search(min, max, func(min, max [2]float64, value interface{}) bool {
+			return true
+		})
+	})
+
+	fmt.Printf("search-5%%:    ")
+	lotsa.Ops(10_000, 1, func(i, _ int) {
+		const p = 0.05
+		min := [2]float64{rand.Float64()*360 - 180, rand.Float64()*180 - 90}
+		max := [2]float64{min[0] + 360*p, min[1] + 180*p}
+		tr.Search(min, max, func(min, max [2]float64, value interface{}) bool {
+			return true
+		})
+	})
+
+	fmt.Printf("search-10%%:   ")
+	lotsa.Ops(10_000, 1, func(i, _ int) {
+		const p = 0.10
+		min := [2]float64{rand.Float64()*360 - 180, rand.Float64()*180 - 90}
+		max := [2]float64{min[0] + 360*p, min[1] + 180*p}
+		tr.Search(min, max, func(min, max [2]float64, value interface{}) bool {
+			return true
+		})
+	})
+
+	fmt.Printf("delete:       ")
 	lotsa.Ops(N, 1, func(i, _ int) {
 		tr.Delete(rects[i].min, rects[i].max, i)
 	})
