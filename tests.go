@@ -199,25 +199,23 @@ func benchVariousKind(t *testing.T, tr Interface, numPointOrRects int,
 		t.Fatalf("expected %d, got %d", 0, tr.Len())
 	}
 
-	if false {
-		// resinert all items and then replace
-		for i := 0; i < N; i++ {
-			tr.Insert(rects[i].min, rects[i].max, i)
-		}
-		rectsReplace := make([]rect, N)
-		for i := 0; i < N; i++ {
-			rectsReplace[i] = randRectOffset(rects[i], kind)
-		}
-		fmt.Printf("replace: ")
-		lotsa.Ops(N, 1, func(i, _ int) {
-			tr.Replace(
-				rects[i].min, rects[i].max, i,
-				rectsReplace[i].min, rectsReplace[i].max, i,
-			)
-		})
-		if tr.Len() != N {
-			t.Fatalf("expected %d, got %d", N, tr.Len())
-		}
+	// resinert all items and then replace
+	for i := 0; i < N; i++ {
+		tr.Insert(rects[i].min, rects[i].max, i)
+	}
+	rectsReplace := make([]rect, N)
+	for i := 0; i < N; i++ {
+		rectsReplace[i] = randRectOffset(rects[i], kind)
+	}
+	fmt.Printf("replace:      ")
+	lotsa.Ops(N, 1, func(i, _ int) {
+		tr.Replace(
+			rects[i].min, rects[i].max, i,
+			rectsReplace[i].min, rectsReplace[i].max, i,
+		)
+	})
+	if tr.Len() != N {
+		t.Fatalf("expected %d, got %d", N, tr.Len())
 	}
 }
 
