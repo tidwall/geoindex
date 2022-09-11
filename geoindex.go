@@ -40,8 +40,10 @@ type Interface interface {
 // Index is a wrapper around Interface that provides extra features like a
 // Nearby (kNN) function.
 // This can be created like such:
-//   var tree = &rtree.RTree{}
-//   var index = index.Index{tree}
+//
+//	var tree = &rtree.RTree{}
+//	var index = index.Index{tree}
+//
 // Now you can use `index` just like tree but with the extra features.
 type Index struct {
 	tree Interface
@@ -80,6 +82,14 @@ func (index *Index) Children(parent interface{}, reuse []child.Child) (
 	return index.tree.Children(parent, reuse)
 }
 
+type treeNearby interface {
+	Nearby(
+		algo func(min, max [2]float64, data interface{}, item bool,
+		) (dist float64),
+		iter func(min, max [2]float64, data interface{}, dist float64) bool,
+	)
+}
+
 // Nearby performs a kNN-type operation on the index.
 // It's expected that the caller provides its own the `algo` function, which
 // is used to calculate a distance to data. The `add` function should be
@@ -91,10 +101,13 @@ func (index *Index) Nearby(
 	algo func(min, max [2]float64, data interface{}, item bool) (dist float64),
 	iter func(min, max [2]float64, data interface{}, dist float64) bool,
 ) {
+	if tr, ok := index.tree.(treeNearby); ok {
+		tr.Nearby(algo, iter)
+		return
+	}
 	var q queue
 	var parent interface{}
 	var children []child.Child
-
 	for {
 		// gather all children for parent
 		children = index.tree.Children(parent, children[:0])
